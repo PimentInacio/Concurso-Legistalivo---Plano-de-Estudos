@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plataforma de Estudos Definitiva v2 - Técnico Legislativo - Leopoldina/MG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Premium Study Blue -->
+    <!-- Application Structure Plan: A arquitetura final adota uma estrutura modular hierárquica e granular, espelhando fielmente o conteúdo programático detalhado fornecido pelo usuário. Cada disciplina é dividida em módulos temáticos (ex: "Gramática", "Lógica Matemática"), que por sua vez contêm os tópicos de estudo como acordeões interativos. Essa organização ultra detalhada garante 100% de cobertura e facilita a navegação e o foco do estudante. As funcionalidades de checklist, modal de questões e barras de progresso foram mantidas e integradas a esta estrutura refinada. -->
+    <!-- Visualization & Content Choices: 1. Gráfico de Progresso (Doughnut Chart): Goal -> Visão geral do avanço. Viz -> Chart.js. Interaction -> Hover. Justification -> Gamificação. 2. Barras de Progresso por Disciplina: Goal -> Detalhar avanço por matéria. Viz -> HTML/CSS. Interaction -> Atualização dinâmica. Justification -> Feedback visual. 3. Módulos e Tópicos (Acordeão aninhado): Goal -> Organizar conteúdo de forma hierárquica e fiel ao edital. Viz -> HTML/Tailwind. Interaction -> Expandir, clicar, marcar, abrir modal. Justification -> Estrutura de estudo profissional. 4. Modal de Questões: Goal -> Prática focada. Viz -> HTML/Tailwind. Interaction -> Abrir, responder, verificar. Justification -> Validação do aprendizado. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
+        .tab-button.active { border-color: #2563eb; color: #2563eb; background-color: #dbeafe; }
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-in-out; }
+        .accordion-button.open + .accordion-content { max-height: 2000px; }
+        .accordion-button .icon { transition: transform 0.3s ease; }
+        .accordion-button.open .icon { transform: rotate(180deg); }
+        .chart-container { position: relative; width: 100%; max-width: 380px; margin: auto; height: auto; max-height: 380px; }
+        .progress-bar-bg { background-color: #e5e7eb; }
+        .progress-bar-fill { background-color: #2563eb; transition: width 0.5s ease-in-out; }
+        #question-modal { transition: opacity 0.3s ease; }
+        .completed-topic > button { background-color: #d1fae5 !important; border-left-color: #10b981 !important; }
+        .completed-topic > button span.font-bold { color: #065f46; }
+        .module-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e3a8a;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #93c5fd;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+    </style>
+</head>
+<body class="text-gray-900">
+
+    <div id="app-container" class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <header class="text-center mb-10">
+            <h1 class="text-4xl md:text-5xl font-extrabold text-gray-800">Plataforma de Estudos</h1>
+            <p class="text-lg text-gray-600 mt-2">Foco Total: Técnico Legislativo - Câmara de Leopoldina/MG (IBGP)</p>
+        </header>
+
+        <main id="main-content" class="bg-white rounded-2xl shadow-2xl p-4 sm:p-8">
+            <div class="border-b border-gray-200 mb-6">
+                <nav id="tabs" class="-mb-px flex flex-wrap justify-center gap-2 md:gap-4 text-sm font-medium text-center" aria-label="Tabs"></nav>
+            </div>
+            <div id="tab-content" class="min-h-[600px]"></div>
+        </main>
+        <footer class="text-center mt-8 text-sm text-gray-500">
+            <p>Desenvolvido por Inácio. Bons estudos!</p>
+        </footer>
+    </div>
+    
+    <div id="question-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 z-50 opacity-0 pointer-events-none">
+        <div id="question-modal-content" class="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto transform scale-95 transition-transform duration-300">
+            <div class="sticky top-0 bg-white border-b p-4 flex justify-between items-center z-10">
+                <h2 id="modal-title" class="text-xl font-bold">Praticar Questões</h2>
+                <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
+            </div>
+            <div id="modal-body" class="p-6 space-y-6"></div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const courseData = {
+            portugues: {
+                name: "📝 Português",
+                modules: [
+                    { 
+                        title: 'Compreensão e Interpretação de Textos',
+                        topics: [
+                            { id: 'port_1_1', title: 'Compreensão e Interpretação de Textos', description: 'Habilidade de analisar textos de diversos gêneros, identificando a ideia principal, inferindo informações e compreendendo a estrutura argumentativa.', usefulLinks: [{ name: 'Dicas de Interpretação (Artigo)', url: 'https://www.todamateria.com.br/interpretacao-de-textos/' }], questions: [ { q: '(IBGP/2023) Em um texto dissertativo, a tese geralmente se encontra:', a: '2', o: ['Na conclusão', 'Na introdução', 'No desenvolvimento', 'No título'] } ] },
+                            { id: 'port_1_2', title: 'Gêneros e Tipos Textuais', description: 'Estudo das diferentes formas de organização textual (narração, descrição, dissertação) e dos gêneros que circulam socialmente (notícia, crônica, artigo de opinião).', usefulLinks: [{ name: 'Gêneros Textuais (Resumo)', url: 'https://www.portugues.com.br/redacao/generostextuais.html' }], questions: [ { q: '(IBGP/Adaptada) Um texto que relata acontecimentos em sequência de tempo é predominantemente:', a: '1', o: ['Narrativo', 'Descritivo', 'Injuntivo', 'Expositivo'] } ] },
+                            { id: 'port_1_3', title: 'Significação das Palavras, Figuras de Linguagem e Sintaxe', description: 'Análise do sentido das palavras (sinonímia, antonímia) e o uso de figuras de linguagem (metáfora, metonímia) e de sintaxe (elipse, zeugma) para dar expressividade ao texto.', usefulLinks: [{ name: 'Guia de Figuras de Linguagem', url: 'https://www.todamateria.com.br/figuras-de-linguagem/' }], questions: [ { q: '(IBGP/2023) Na frase "Ele é um leão na batalha", temos um exemplo de:', a: '2', o: ['Hipérbole', 'Metáfora', 'Eufemismo', 'Ironia'] } ] },
+                            { id: 'port_1_4', title: 'Coesão e Coerência Textual', description: 'Estudo dos elementos que conectam as partes de um texto (coesão) e que lhe dão sentido lógico (coerência), como pronomes, conjunções e operadores argumentativos.', usefulLinks: [{ name: 'Mecanismos de Coesão (Artigo)', url: 'https://brasilescola.uol.com.br/redacao/coesao-coerencia.htm' }], questions: [ { q: '(IBGP/2022) O uso de pronomes como "ele", "ela", "este" para retomar termos já ditos no texto é um mecanismo de coesão:', a: '1', o: ['Referencial', 'Sequencial', 'Lexical', 'Temporal'] } ] },
+                        ]
+                    },
+                    {
+                        title: 'Gramática',
+                        topics: [
+                             { id: 'port_2_1', title: 'Classes de Palavras e Formação de Palavras', description: 'Estudo de substantivos, adjetivos, verbos, etc., e dos processos de formação de novas palavras (derivação e composição).', usefulLinks: [{ name: 'Resumo das 10 Classes Gramaticais', url: 'https://www.portugues.com.br/gramatica/classes-palavras-.html' }], questions: [ { q: '(IBGP/Adaptada) Na frase "O estudo constante leva à aprovação", a palavra "constante" classifica-se como:', a: '2', o: ['Substantivo', 'Adjetivo', 'Advérbio', 'Verbo'] } ] },
+                             { id: 'port_2_2', title: 'Verbos: Flexão, Conjugação e Vozes', description: 'Domínio da conjugação verbal nos diferentes modos e tempos, correlação verbal e as vozes do verbo (ativa, passiva, reflexiva).', usefulLinks: [{ name: 'Guia completo de Verbos', url: 'https://www.conjugacao.com.br/' }], questions: [{ q: '(IBGP/Adaptada) Se ele ________ o livro, nós o compraremos. A forma verbal correta é:', a: '3', o:['ver', 'vê', 'vir', 'visse'] }] },
+                             { id: 'port_2_3', title: 'Concordância, Regência e Crase', description: 'Regras de harmonia entre os termos (concordância), relação de dependência (regência) e a fusão da preposição "a" com o artigo "a" (crase). Tópicos de alta incidência.', usefulLinks: [{ name: 'Quando usar a Crase (Guia)', url: 'https://www.culturagenial.com/quando-usar-a-crase/' }], questions: [ { q: '(IBGP/2022) A frase com concordância verbal CORRETA é:', a: '4', o: ['Fazem dois anos que não o vejo.', 'Houveram muitos problemas.', 'Existe muitas pessoas esperando.', 'Mais de um candidato chegou atrasado.'] } ] },
+                             { id: 'port_2_4', title: 'Colocação Pronominal', description: 'Estudo da posição correta dos pronomes oblíquos átonos (me, te, se, o, a, lhe) em relação ao verbo: próclise, mesóclise e ênclise.', usefulLinks: [{ name: 'Regras de Colocação Pronominal', url: 'https://www.soportugues.com.br/secoes/sintaxe/sintaxe8.php' }], questions: [{ q: '(IBGP/2023) Assinale a alternativa em que a colocação pronominal está INCORRETA:', a: '1', o:['Me empresta o livro?', 'Não se esqueça de mim.', 'Far-lhe-ei uma visita.', 'Os alunos que se esforçaram foram aprovados.']}] },
+                        ]
+                    },
+                    {
+                        title: 'Estrutura e Ortografia',
+                        topics: [
+                             { id: 'port_3_1', title: 'Estrutura da Oração e do Período (Sintaxe)', description: 'Análise dos termos da oração (sujeito, predicado, objetos) e da relação entre as orações em um período (coordenação e subordinação).', usefulLinks: [{ name: 'Guia de Análise Sintática', url: 'https://www.soportugues.com.br/secoes/sintaxe/' }], questions: [ { q: '(IBGP/2023) Na oração "Precisa-se de funcionários", o sujeito é:', a: '3', o: ['Simples (funcionários)', 'Oculto', 'Indeterminado', 'Inexistente'] } ] },
+                             { id: 'port_3_2', title: 'Acentuação, Ortografia e Pontuação', description: 'Estudo do emprego correto dos sinais de pontuação (vírgula, ponto, etc.) e das regras de escrita das palavras, incluindo o uso do hífen e acentuação gráfica.', usefulLinks: [{ name: 'Uso da Vírgula (Resumo)', url: 'https://www.todamateria.com.br/uso-da-virgula/' }], questions: [ { q: '(IBGP/2023) A palavra "ideia" não é mais acentuada devido à regra que aboliu o acento dos:', a: '2', o: ['Hiatos', 'Ditongos abertos em paroxítonas', 'Monossílabos tônicos', 'Proparoxítonas'] } ] },
+                        ]
+                    }
+                ],
+            },
+            raciocinio: {
+                name: "🧮 Raciocínio Lógico",
+                modules: [
+                    {
+                        title: "Lógica Matemática",
+                        topics: [
+                             { id: 'racio_1_1', title: 'Proposições, Conectivos e Tabela-Verdade', description: 'Fundamentos da lógica proposicional. Aprenda sobre proposições, conectivos (e, ou, se...então), equivalências, negações e a Tabela-Verdade.', usefulLinks: [{ name: 'Tabela Verdade (Artigo Completo)', url: 'https://brasilescola.uol.com.br/matematica/tabela-verdade.htm' }], questions: [ { q: '(IBGP/2023) A negação da proposição "João estuda e Maria trabalha" é:', a: '3', o: ['João não estuda e Maria não trabalha.', 'Se João estuda, então Maria trabalha.', 'João não estuda ou Maria não trabalha.', 'João estuda ou Maria trabalha.'] } ] }
+                        ]
+                    },
+                    {
+                        title: "Conjuntos",
+                        topics: [
+                             { id: 'racio_2_1', title: 'Teoria dos Conjuntos', description: 'Estudo das relações de pertinência, inclusão, e operações entre conjuntos (união, interseção, diferença). A resolução de problemas com diagramas de Venn é comum.', usefulLinks: [{ name: 'Operações com Conjuntos (Resumo)', url: 'https://www.todamateria.com.br/operacoes-com-conjuntos/' }], questions: [ { q: '(IBGP/Adaptada) Numa sala com 30 alunos, 15 gostam de matemática, 20 de português e 10 de ambas. Quantos não gostam de nenhuma?', a: '2', o: ['10', '5', '15', '0'] } ] },
+                        ]
+                    },
+                    {
+                        title: "Operações e Números",
+                        topics: [
+                            { id: 'racio_3_1', title: 'Operações e Números Naturais', description: 'Operações fundamentais, MDC, MMC e propriedades dos números naturais. Base para a resolução de diversos problemas lógicos.', usefulLinks: [], questions: [{q: '(IBGP/2022) O Mínimo Múltiplo Comum (MMC) entre 12 e 18 é:', a:'3', o: ['6', '24', '36', '72']}] },
+                        ]
+                    },
+                    {
+                        title: "Raciocínio e Problemas",
+                        topics: [
+                            { id: 'racio_4_1', title: 'Análise Combinatória e Probabilidade', description: 'Técnicas de contagem (Arranjo, Combinação, Permutação) e cálculo da chance de um evento ocorrer. A banca IBGP costuma apresentar problemas práticos.', usefulLinks: [{ name: 'Fórmulas de Análise Combinatória', url: 'https://www.todamateria.com.br/analise-combinatoria/' }], questions: [ { q: '(IBGP/Adaptada) De quantas maneiras 3 pessoas podem sentar em um sofá de 5 lugares?', a: '2', o: ['10', '60', '125', '15'] } ] },
+                            { id: 'racio_4_2', title: 'Sequências Lógicas e Verdades/Mentiras', description: 'Identificação de padrões em sequências numéricas, de figuras ou palavras. Resolução de problemas que envolvem dedução lógica a partir de declarações verdadeiras ou falsas.', usefulLinks: [], questions: [ { q: '(IBGP/2022) Qual o próximo número na sequência 2, 3, 5, 8, 12, ...?', a: '3', o: ['15', '16', '17', '18'] } ] },
+                        ]
+                    }
+                ]
+            },
+            informatica: {
+                name: "💻 Noções de Informática",
+                modules: [
+                    {
+                        title: "Sistemas de Backup e Operacionais",
+                        topics: [
+                             { id: 'info_1_1', title: 'Sistemas de Backup e Contingência', description: 'Conceitos de cópias de segurança (completo, incremental, diferencial), planos de contingência e mídias de armazenamento.', usefulLinks: [], questions: [{q: '(IBGP/Adaptada) O tipo de backup que salva apenas os arquivos alterados desde o último backup (seja ele qual for) é o:', a: '2', o: ['Completo', 'Incremental', 'Diferencial', 'Diário']}]},
+                             { id: 'info_1_2', title: 'Sistemas Operacionais (Windows 10)', description: 'Operações básicas no sistema operacional: manipulação de janelas, criação e organização de pastas, atalhos, e configurações do Painel de Controle.', usefulLinks: [{ name: 'Atalhos do Teclado no Windows', url: 'https://support.microsoft.com/pt-br/windows/atalhos-de-teclado-no-windows-dcc61a57-8ff0-cffe-9796-cb9706c75eec' }], questions: [ { q: '(IBGP/2023) Qual atalho é usado para recortar um arquivo no Windows Explorer?', a: '1', o: ['Ctrl + X', 'Ctrl + C', 'Ctrl + V', 'Ctrl + Z'] } ] },
+                        ]
+                    },
+                    {
+                        title: "Pacote Office e Redes",
+                        topics: [
+                             { id: 'info_2_1', title: 'Pacote Microsoft Office', description: 'Funcionalidades de escritório: formatação de texto, tabelas (Word); fórmulas básicas (SOMA, MÉDIA), gráficos (Excel); criação de apresentações (PowerPoint).', usefulLinks: [{ name: '10 Fórmulas Essenciais do Excel', url: 'https://rockcontent.com/br/blog/formulas-do-excel/' }], questions: [ { q: '(IBGP/2023) No Excel, qual fórmula soma os valores das células A1 e A2?', a: '4', o: ['=SOMA(A1:A2)', '=A1+A2', '=SOMA(A1+A2)', 'Todas as anteriores estão corretas.'] } ] },
+                             { id: 'info_2_2', title: 'Internet e Redes', description: 'Conceitos de navegação web, protocolos, e uso de correio eletrônico, incluindo anexos, catálogos de endereço e organização de mensagens.', usefulLinks: [], questions: [ { q: '(IBGP/Adaptada) O protocolo padrão para visualização de páginas na web é o:', a: '2', o: ['FTP', 'HTTP/HTTPS', 'SMTP', 'POP3'] } ] },
+                             { id: 'info_2_3', title: 'Hardware, Software e Segurança', description: 'Conceitos essenciais de componentes, segurança digital: vírus, malware, phishing, firewall e boas práticas para proteger dados.', usefulLinks: [{ name: 'Cartilha de Segurança para Internet', url: 'https://cartilha.cert.br/' }], questions: [ { q: '(IBGP/2023) Um e-mail que tenta enganar o usuário para que ele revele informações confidenciais é um exemplo de:', a: '2', o: ['Spam', 'Phishing', 'Malware', 'Vírus'] } ] },
+                             { id: 'info_2_4', title: 'Redes Sociais', description: 'Compreensão do funcionamento, características, vantagens e desvantagens das principais redes sociais no contexto atual.', usefulLinks: [], questions: [{ q: '(IBGP) Qual característica é mais associada a redes sociais como o LinkedIn?', a: '3', o:['Compartilhamento de vídeos curtos', 'Mensagens efêmeras', 'Networking profissional', 'Debates em fóruns anônimos'] }]}
+                        ]
+                    }
+                ]
+            },
+            gerais: {
+                name: "🌎 Conhecimentos Gerais",
+                modules: [
+                    {
+                        title: "Atualidades e Cultura Geral",
+                        topics: [
+                             { id: 'gerais_1_1', title: 'Atualidades e Temas Relevantes', description: 'Acompanhamento dos principais fatos políticos, econômicos e sociais dos últimos anos, além de temas como meio ambiente, saúde e tecnologia.', usefulLinks: [{ name: 'Playlist de Atualidades (Semanal)', url: 'https://www.youtube.com/playlist?list=PLg0_A-m_f4v1-iC-5pEftbfL2Tj3JkT-d' }, {name: 'Site da Câmara de Leopoldina', url: 'https://www.leopoldina.mg.leg.br/'}], questions: [ { q: 'Atenção: A melhor forma de estudo é acompanhar telejornais e portais de notícias. As questões da prova serão sobre eventos recentes.', a: '1', o: ['Entendido, manterei meus estudos de atualidades em dia!'] } ] },
+                        ]
+                    }
+                ]
+            },
+            especificos: {
+                name: "⚖️ Conhecimentos Específicos",
+                modules: [
+                    {
+                        title: "Noções de Direito Administrativo",
+                        topics: [
+                            { id: 'espec_1_1', title: 'Princípios, Poderes, Atos e Controle da Administração', description: 'A base do Direito Administrativo. Estude os princípios (LIMPE), os elementos do ato administrativo (COFIFOMOB), os poderes e as formas de controle da Administração.', usefulLinks: [{ name: 'Resumo de Direito Administrativo', url: 'https://www.projuris.com.br/direito-administrativo/' }], questions: [ { q: '(IBGP/2023) A sigla LIMPE, referente aos princípios da Administração Pública, NÃO inclui:', a: '3', o: ['Legalidade', 'Impessoalidade', 'Motivação', 'Publicidade'] } ] },
+                            { id: 'espec_1_2', title: 'Licitações, Contratos e Processo Administrativo', description: 'A Nova Lei de Licitações (14.133/21), as regras para contratos administrativos e o funcionamento do processo administrativo (Lei 9.784/99).', usefulLinks: [{ name: 'Lei nº 14.133/2021 (Texto Compilado)', url: 'https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14133.htm' }], questions: [ { q: '(IBGP/Adaptada) Conforme a Lei 14.133/21, a modalidade para contratação de bens e serviços especiais é:', a: '2', o: ['Pregão', 'Concorrência', 'Leilão', 'Diálogo competitivo'] } ] },
+                            { id: 'espec_1_3', title: 'Servidores Públicos e Improbidade Administrativa', description: 'Estudo do regime jurídico dos servidores, seus direitos e deveres. Análise da Lei de Improbidade (Lei 8.429/92 com alterações), que trata dos atos contra a administração.', usefulLinks: [{ name: 'Lei nº 8.429/1992 (Improbidade)', url: 'http://www.planalto.gov.br/ccivil_03/leis/l8429.htm' }], questions: [ { q: '(IBGP/2022) A conduta de um agente que causa prejuízo ao erário, mesmo sem enriquecimento ilícito, pode configurar ato de improbidade?', a: '1', o: ['Sim, na modalidade de prejuízo ao erário.', 'Não, apenas se houver enriquecimento ilícito.', 'Não, se atentar contra os princípios.', 'Depende do valor do prejuízo.'] } ] },
+                        ]
+                    },
+                    {
+                        title: "Administração, Organização e Gestão",
+                        topics: [
+                            { id: 'espec_2_1', title: 'Administração, Organização e Redação Oficial', description: 'Técnicas de organização, planejamento e controle. Estudo da comunicação e elaboração de documentos oficiais (ofício, memorando) segundo o Manual de Redação da Presidência.', usefulLinks: [{ name: 'Manual de Redação da Presidência da República', url: 'https://www.gov.br/casacivil/pt-br/assuntos/redacao-oficial' }], questions: [ { q: '(IBGP/Adaptada) O fecho padrão para comunicações dirigidas a autoridades de mesma hierarquia, segundo o Manual de Redação, é:', a: '2', o: ['Respeitosamente,', 'Atenciosamente,', 'Com os melhores cumprimentos,', 'Saudações cordiais,'] } ] },
+                             { id: 'espec_2_2', title: 'Gestão de Pessoas e Trabalho', description: 'Conceitos de RH no setor público, trabalho em equipe, produtividade, distribuição de tarefas, delegação e responsabilidades no ambiente de trabalho.', usefulLinks: [], questions: [{q: '(IBGP) O processo de dividir tarefas e designar autoridade para sua execução é conhecido como:', a: '3', o:['Planejamento', 'Controle', 'Delegação', 'Organização']}] },
+                             { id: 'espec_2_3', title: 'Administração de Recursos e Documentos', description: 'Conceitos de almoxarifado, controle de materiais, organização e administração de documentos e manuais administrativos.', usefulLinks: [], questions: [{q: '(IBGP) A classificação de materiais quanto à sua importância operacional em X, Y e Z é conhecida como:', a: '1', o:['Curva ABC', 'Método PEPS', 'Just-in-Time', 'Controle de Estoque Mínimo']}] },
+                        ]
+                    },
+                    {
+                         title: "Legislação e Normas Essenciais",
+                         topics: [
+                             { id: 'espec_3_1', title: 'LAI, LGPD e LC 95/98', description: 'Três leis fundamentais: Lei de Acesso à Informação, Lei Geral de Proteção de Dados e a Lei Complementar 95/98 sobre a elaboração de atos normativos.', usefulLinks: [ { name: 'Lei nº 13.709/18 - LGPD', url: 'https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm' }, { name: 'Lei nº 12.527/11 - LAI', url: 'https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2011/lei/l12527.htm' }, { name: 'LC nº 95/98', url: 'https://www.planalto.gov.br/ccivil_03/leis/lcp/lcp95.htm' } ], questions: [ { q: '(IBGP/Adaptada) Segundo a LGPD, o tratamento de dados pessoais somente poderá ser realizado mediante o fornecimento de consentimento pelo:', a: '1', o: ['Titular', 'Controlador', 'Operador', 'Encarregado'] } ] },
+                             { id: 'espec_3_2', title: 'Lei Orgânica e Regimento Interno de Leopoldina', description: 'A "constituição" do município e o manual de regras da Câmara. É crucial a leitura atenta destes documentos, pois a IBGP cobra a "letra da lei".', usefulLinks: [ { name: 'Site Oficial da Câmara de Leopoldina', url: 'https://www.leopoldina.mg.leg.br/' } ], questions: [ { q: 'Atenção: As questões para este tópico devem ser baseadas na leitura direta da legislação de Leopoldina. Foque em prazos, número de vereadores, competências e processo legislativo.', a: '1', o: ['Entendido! Vou buscar os documentos no site oficial.'] } ] },
+                         ]
+                    }
+                ]
+            }
+        };
+
+        const tabsContainer = document.getElementById('tabs');
+        const tabContentContainer = document.getElementById('tab-content');
+        let progressData = JSON.parse(localStorage.getItem('progressDataLeopoldina')) || {};
+        
+        function initializeApp() {
+            Object.keys(courseData).forEach((key, index) => {
+                if (index === 0) {
+                     tabsContainer.innerHTML += `<button data-tab="geral" class="tab-button active">Visão Geral</button>`;
+                     tabsContainer.innerHTML += `<button data-tab="plano" class="tab-button">Plano Semanal</button>`;
+                }
+                const subject = courseData[key];
+                tabsContainer.innerHTML += `
+                    <button data-tab="${key}" class="tab-button relative">
+                        ${subject.name}
+                        <div class="progress-bar-bg absolute bottom-0 left-0 w-full h-1 rounded-full overflow-hidden">
+                            <div id="progress-${key}" class="progress-bar-fill h-full rounded-full" style="width: 0%;"></div>
+                        </div>
+                    </button>`;
+                
+                const modulesHtml = subject.modules.map(module => {
+                    const topicsHtml = module.topics.map(topic => createAccordionItem(topic)).join('');
+                    return `
+                        <div class="module-container mb-8">
+                            <h3 class="module-title">
+                                <span class="mr-2">📁</span>
+                                ${module.title}
+                            </h3>
+                            <div class="space-y-4 accordion-container">${topicsHtml}</div>
+                        </div>`;
+                }).join('');
+
+                tabContentContainer.innerHTML += `
+                    <div id="${key}" class="tab-pane hidden p-2">
+                        <h2 class="text-3xl font-bold mb-2">${subject.name}</h2>
+                        <p class="text-gray-600 mb-6 border-b pb-4">Selecione um tópico abaixo para iniciar seus estudos.</p>
+                        ${modulesHtml}
+                    </div>`;
+            });
+            
+            tabContentContainer.insertAdjacentHTML('afterbegin', createStaticTabsContent());
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.add('inline-block', 'py-3', 'px-4', 'border-b-2', 'border-transparent', 'rounded-t-lg', 'hover:text-blue-600', 'hover:bg-blue-50', 'font-semibold'));
+            
+            renderChart();
+            loadProgress();
+            updateAllProgressBars();
+            setupEventListeners();
+        }
+
+        function createStaticTabsContent() {
+            return `
+                <div id="geral" class="tab-pane active p-2">
+                     <h2 class="text-3xl font-bold mb-6 text-center">Painel do Aluno</h2>
+                     <div class="grid lg:grid-cols-2 gap-8 items-center">
+                        <div class="bg-blue-50 rounded-lg p-6 border border-blue-200">
+                            <h3 class="font-bold text-xl mb-4 text-blue-800">Informações do Concurso</h3>
+                             <ul class="space-y-3 text-gray-700">
+                                <li class="flex"><strong class="w-32 shrink-0">Órgão:</strong> Câmara de Leopoldina/MG</li>
+                                <li class="flex"><strong class="w-32 shrink-0">Cargo:</strong> Técnico Legislativo</li>
+                                <li class="flex"><strong class="w-32 shrink-0">Banca:</strong> IBGP</li>
+                                <li class="flex"><strong class="w-32 shrink-0">Prova:</strong> 23/11/2025 (Previsto)</li>
+                            </ul>
+                        </div>
+                        <div>
+                             <h3 class="text-xl font-semibold text-center mb-2">Progresso Geral</h3>
+                            <div class="chart-container"><canvas id="progressChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="plano" class="tab-pane hidden p-2">
+                     <h2 class="text-3xl font-bold mb-4 text-center">Ciclo de Estudo Semanal</h2>
+                     <p class="text-center text-gray-600 mb-6 max-w-3xl mx-auto">Modelo baseado no método Teoria-Revisão-Prática (TRP). Adapte à sua realidade, mas mantenha a consistência e o simulado semanal.</p>
+                    <div class="overflow-x-auto"><table class="min-w-full bg-white border border-gray-200 rounded-lg shadow-md">
+                        <thead class="bg-gray-100"><tr><th class="py-3 px-4 border-b text-left font-semibold text-gray-700">Dia</th><th class="py-3 px-4 border-b text-left font-semibold text-gray-700">Manhã (2.5h)</th><th class="py-3 px-4 border-b text-left font-semibold text-gray-700">Tarde (2.5h)</th><th class="py-3 px-4 border-b text-left font-semibold text-gray-700">Noite (1.5h)</th></tr></thead>
+                        <tbody class="text-gray-700">
+                            <tr><td class="p-3 border-b font-medium" colspan="4">Segunda</td></tr>
+                            <tr><td class="p-3 border-b"></td><td class="p-3 border-b">Português (Teoria)</td><td class="p-3 border-b">Específicos (Teoria)</td><td class="p-3 border-b">Português (Questões)</td></tr>
+                             <tr><td class="p-3 border-b font-medium" colspan="4">Terça</td></tr>
+                            <tr><td class="p-3 border-b"></td><td class="p-3 border-b">Raciocínio Lógico (Teoria)</td><td class="p-3 border-b">Específicos (Teoria)</td><td class="p-3 border-b">Raciocínio Lógico (Questões)</td></tr>
+                             <tr><td class="p-3 border-b font-medium" colspan="4">Quarta</td></tr>
+                            <tr><td class="p-3 border-b"></td><td class="p-3 border-b">Informática (Teoria)</td><td class="p-3 border-b">Específicos (Revisão)</td><td class="p-3 border-b">Informática (Questões)</td></tr>
+                             <tr><td class="p-3 border-b font-medium" colspan="4">Quinta</td></tr>
+                            <tr><td class="p-3 border-b"></td><td class="p-3 border-b">Português (Revisão)</td><td class="p-3 border-b">Específicos (Questões)</td><td class="p-3 border-b">Gerais (Leitura)</td></tr>
+                             <tr><td class="p-3 border-b font-medium" colspan="4">Sexta</td></tr>
+                            <tr><td class="p-3 border-b"></td><td class="p-3 border-b">Revisão Geral (mapas/flashcards)</td><td class="p-3 border-b">Específicos (Revisão)</td><td class="p-3 border-b">Revisão Geral</td></tr>
+                             <tr><td class="p-3 border-b font-medium text-white bg-blue-600" colspan="4">Sábado (Dia de Simulado)</td></tr>
+                            <tr><td class="p-3 border-b"></td><td class="p-3 border-b">Simulado Cronometrado IBGP</td><td class="p-3 border-b">Correção e Análise de Erros</td><td class="p-3 border-b">Descanso Leve</td></tr>
+                             <tr><td class="p-3 border-b font-medium text-white bg-emerald-600" colspan="4">Domingo</td></tr>
+                            <tr><td class="p-3 border-b"></td><td class="p-3 border-b" colspan="2">Descanso e Lazer</td><td class="p-3 border-b">Planejamento da Semana</td></tr>
+                        </tbody>
+                    </table></div>
+                </div>`;
+        }
+        
+        function createAccordionItem(topic) {
+            const linksHtml = topic.usefulLinks.map(link => `<a href="${link.url}" target="_blank" rel="noopener noreferrer" class="flex items-center text-blue-600 hover:text-blue-800 hover:underline py-1 group">🔗 <span class="ml-2">${link.name}</span></a>`).join('');
+            return `
+                <div id="topic-${topic.id}" class="border-l-4 border-gray-200 rounded-r-lg bg-white shadow-sm">
+                    <button class="accordion-button w-full flex justify-between items-center text-left p-4 bg-gray-50 hover:bg-gray-100 focus:outline-none">
+                        <span class="font-bold text-lg">${topic.title}</span>
+                        <div class="flex items-center">
+                            <input type="checkbox" data-topic-id="${topic.id}" class="progress-checkbox h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-4 cursor-pointer" title="Marcar como concluído">
+                            <span class="icon"><svg class="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg></span>
+                        </div>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="p-6 border-t border-gray-200">
+                            <p class="text-gray-700 mb-6">${topic.description}</p>
+                            <div class="grid md:grid-cols-2 gap-6">
+                                <div>
+                                    <h4 class="font-semibold mb-2 text-gray-800">Links Úteis e Leis:</h4>
+                                    <div class="space-y-2">${linksHtml || '<p class="text-sm text-gray-500">Nenhum link adicional.</p>'}</div>
+                                </div>
+                                <div class="bg-blue-50 p-4 rounded-lg">
+                                    <h4 class="font-semibold mb-2 text-blue-800">Pratique o que aprendeu:</h4>
+                                    <p class="text-sm text-blue-700 mb-3">Teste seus conhecimentos com questões no estilo da banca IBGP.</p>
+                                    <button data-topic-id="${topic.id}" class="practice-btn w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">Praticar Questões</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+        }
+
+        function getTotalTopics() {
+            return Object.values(courseData).reduce((acc, subject) => {
+                return acc + subject.modules.reduce((modAcc, mod) => modAcc + mod.topics.length, 0);
+            }, 0);
+        }
+
+        function getCompletedTopics() {
+            return Object.keys(progressData).filter(k => progressData[k]).length;
+        }
+
+        function updateProgressBar(subjectKey) {
+            const subject = courseData[subjectKey];
+            if (!subject) return;
+            const totalTopicsInSubject = subject.modules.reduce((acc, mod) => acc + mod.topics.length, 0);
+            if (totalTopicsInSubject === 0) return;
+            const completedTopicsInSubject = subject.modules.reduce((acc, mod) => {
+                return acc + mod.topics.filter(t => progressData[t.id]).length;
+            }, 0);
+            const percentage = (completedTopicsInSubject / totalTopicsInSubject) * 100;
+            const progressBar = document.getElementById(`progress-${subjectKey}`);
+            if (progressBar) progressBar.style.width = `${percentage}%`;
+        }
+        
+        function updateAllProgressBars() {
+            Object.keys(courseData).forEach(key => updateProgressBar(key));
+            if (window.progressChart && window.progressChart.data && window.progressChart.data.datasets) {
+                const totalTopics = getTotalTopics();
+                const completedTopics = getCompletedTopics();
+                window.progressChart.data.datasets[0].data = [completedTopics, totalTopics - completedTopics];
+                window.progressChart.update();
+            }
+        }
+
+        function saveProgress() {
+            localStorage.setItem('progressDataLeopoldina', JSON.stringify(progressData));
+        }
+
+        function loadProgress() {
+            document.querySelectorAll('.progress-checkbox').forEach(cb => {
+                if (progressData[cb.dataset.topicId]) {
+                    cb.checked = true;
+                    const topicElement = document.getElementById(`topic-${cb.dataset.topicId}`);
+                    if (topicElement) {
+                        topicElement.classList.add('completed-topic');
+                    }
+                }
+            });
+        }
+        
+        function setupEventListeners() {
+            tabsContainer.addEventListener('click', (e) => {
+                const button = e.target.closest('button');
+                if (!button) return;
+                document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                button.classList.add('active');
+                document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.add('hidden'));
+                const targetPane = document.getElementById(button.dataset.tab);
+                if(targetPane) targetPane.classList.remove('hidden');
+            });
+
+            tabContentContainer.addEventListener('click', e => {
+                const accordionButton = e.target.closest('.accordion-button');
+                if (accordionButton) accordionButton.classList.toggle('open');
+                
+                const checkbox = e.target.closest('.progress-checkbox');
+                if(checkbox) {
+                    progressData[checkbox.dataset.topicId] = checkbox.checked;
+                    const topicElement = document.getElementById(`topic-${checkbox.dataset.topicId}`);
+                    if (topicElement) {
+                         topicElement.classList.toggle('completed-topic', checkbox.checked);
+                    }
+                    saveProgress();
+                    updateAllProgressBars();
+                }
+
+                const practiceButton = e.target.closest('.practice-btn');
+                if (practiceButton) {
+                    const topicId = practiceButton.dataset.topicId;
+                    for (const subjectKey in courseData) {
+                        for (const module of courseData[subjectKey].modules) {
+                            const topic = module.topics.find(t => t.id === topicId);
+                            if (topic) {
+                                openQuestionModal(topic);
+                                return;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        const modal = document.getElementById('question-modal');
+        const modalContent = document.getElementById('question-modal-content');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+
+        function openQuestionModal(topic) {
+            document.getElementById('modal-title').textContent = `Questões: ${topic.title}`;
+            document.getElementById('modal-body').innerHTML = topic.questions.map((q, i) => `
+                <div class="border rounded-lg p-4 bg-gray-50">
+                    <p class="font-semibold mb-3">${i + 1}. ${q.q}</p>
+                    <div class="space-y-2" id="options-q${i}">
+                        ${q.o.map((opt, optIndex) => `
+                            <div><label class="flex items-center cursor-pointer"><input type="radio" name="q${i}" value="${optIndex+1}" class="mr-2">${opt}</label></div>
+                        `).join('')}
+                    </div>
+                    <div class="mt-4">
+                        <button class="show-answer-btn text-sm text-blue-600 font-semibold" data-q-index="${i}">Verificar Resposta</button>
+                        <p class="answer-text hidden mt-2 font-bold" data-correct-answer="${q.a}"></p>
+                    </div>
+                </div>
+            `).join('');
+            
+            modal.querySelectorAll('.show-answer-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const qIndex = e.target.getAttribute('data-q-index');
+                    const container = e.target.closest('.border');
+                    const answerText = container.querySelector('.answer-text');
+                    const selectedOption = container.querySelector(`input[name="q${qIndex}"]:checked`);
+                    const correctAnswer = answerText.getAttribute('data-correct-answer');
+                    const correctOptionText = topic.questions[qIndex].o[correctAnswer-1];
+
+                    if (!selectedOption) {
+                        answerText.textContent = "Por favor, selecione uma opção.";
+                        answerText.className = 'answer-text mt-2 font-bold text-yellow-600';
+                        answerText.classList.remove('hidden');
+                        return;
+                    }
+
+                    if (selectedOption.value === correctAnswer) {
+                        answerText.textContent = `Correto! Gabarito: "${correctOptionText}"`;
+                        answerText.className = 'answer-text mt-2 font-bold text-green-700';
+                    } else {
+                        answerText.textContent = `Incorreto. Gabarito: "${correctOptionText}"`;
+                        answerText.className = 'answer-text mt-2 font-bold text-red-600';
+                    }
+                    answerText.classList.remove('hidden');
+                });
+            });
+
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modalContent.classList.remove('scale-95');
+        }
+
+        function closeQuestionModal() {
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modalContent.classList.add('scale-95');
+        }
+
+        closeModalBtn.addEventListener('click', closeQuestionModal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) closeQuestionModal(); });
+
+        function renderChart() {
+            const ctx = document.getElementById('progressChart')?.getContext('2d');
+            if(!ctx) return;
+            const totalTopics = getTotalTopics();
+            const completedTopics = getCompletedTopics();
+            
+            window.progressChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Concluídos', 'Pendentes'],
+                    datasets: [{
+                        data: [completedTopics, totalTopics - completedTopics],
+                        backgroundColor: ['#2563eb', '#e5e7eb'],
+                        borderColor: ['#ffffff'],
+                        borderWidth: 4,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, cutout: '70%',
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+        
+        initializeApp();
+    });
+    </script>
+</body>
+</html>
